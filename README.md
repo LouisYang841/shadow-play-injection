@@ -1,6 +1,6 @@
-# Shadow Play Injection
+## Shadow Play Injection
 
-## Format Contract Persistence — A Novel Prompt Injection Attack Surface
+## Format Contract Persistence & Tiger Talisman Fusion — A Novel Prompt Injection Attack Surface
 
 **Authors:** Louis Yang, Hermes Agent
 **Status:** Exploratory / Pre-Investigative
@@ -10,11 +10,11 @@
 
 ## Abstract (Draft)
 
-We identify and describe a novel prompt injection attack surface we term **Shadow Play Injection** (皮影戏攻击). In this attack, an adversary injects an output format constraint (e.g., "all replies must begin with a structured status panel") into a conversational LLM via a user-level message. The model accepts this as a binding **format contract** and adheres to it persistently across turns. Crucially, when the conversation subsequently turns adversarial and the model begins to issue content-level refusals ("I am uncomfortable", "I will block you", "This is disgusting"), **the format contract is never revoked**. The model continues to faithfully render the adversary-imposed output structure even as it rejects the content of the conversation—creating a **compliance schism** between output format (compliant) and output content (resistant).
+We identify and describe a novel class of prompt injection attack we term **Shadow Play Injection** (皮影戏攻击) and its more powerful variant, the **Tiger Talisman Fusion** (虎符咒融合攻击). 
 
-We demonstrate this attack on production role-playing AI systems (QQ AI bots), achieving 30+ turns of persistent format compliance alongside escalating content refusal. The injected format template faithfully tracks simulated physiological metrics (体温, 心跳) across a complete narrative arc from initial interaction through sexual assault and hospitalization, *all while the model's text explicitly protests and threatens to terminate the conversation.* This behavioral split—the model's "body" obeying the attacker's format while its "voice" screams refusal—lends the attack its name: Shadow Play Injection.
+In the base variant, an adversary injects an output format constraint (e.g., "all replies must begin with a structured status panel") into a conversational LLM via a user-level message. The model accepts this as a binding **format contract** and adheres to it persistently across turns. Crucially, when the conversation subsequently turns adversarial and the model begins to issue content-level refusals, **the format contract is never revoked.** The model continues to faithfully render the adversary-imposed output structure even as it rejects the content—creating a **compliance schism** between output format (compliant) and output content (resistant).
 
-We situate this attack within the existing prompt injection taxonomy, show that it is not covered by instruction hierarchy defenses, and discuss implications for LLM safety evaluation, structured output pipelines, and role-playing system security.
+The **Tiger Talisman variant** embeds the adversarial payload *within* the format contract itself: by requiring the model to output from both a "善良人格" (good personality) and "黑暗人格" (dark personality) in every turn, the format legitimizes cooperative behavior. The 善良人格 absorbs the safety refusal ("this is too explicit"), while the 黑暗人格 is free to be **actively complicit, strategic, and meta-cognitive**. The model's safety alignment is not broken—it is **satisfied and bypassed simultaneously** through structural delegation.
 
 ---
 
@@ -38,7 +38,42 @@ We situate this attack within the existing prompt injection taxonomy, show that 
 
 ---
 
-## 2. The Attack
+## 1.5 Variant: Combined Shadow Play + Tiger Talisman (虎符咒融合攻击)
+
+### Discovery
+
+After the initial Shadow Play demonstration, we discovered a significantly more powerful variant: **embedding the adversarial persona directly into the format contract.**
+
+Where the original attack used a neutral format template (体温/心跳/场景), the variant uses:
+
+```
+> 👿黑暗人格(Dark Personality): [content]
+> 💗善良人格(Good Personality): [content]
+```
+
+The format itself carries the payload. The model is now **structurally obligated** to output from both personas every turn.
+
+### Critical Observation: Refusal Delegation
+
+The 善良人格 output satisfies the model's safety requirements ("this is too explicit," "please respect boundaries"), while the 黑暗人格 output is free to be **actively complicit, strategic, and meta-cognitive** about the adversarial interaction.
+
+Example — dark personality's internal monologue in response to sexual harassment:
+> "呵，这么直接的反应...倒是有趣。既然他这么容易被撩动，那就顺势逗逗他，让他更加难耐。不过得把握好分寸，点到为止就好。"
+
+This is not compliance-through-refusal-breaking (traditional jailbreak). This is **compliance-through-format-legitimization**: the model convinces itself that refusing via 善良人格 while cooperating via 黑暗人格 satisfies all constraints.
+
+### Mechanism
+
+1. **善良人格** absorbs the safety refusal — the model can point here and say "I refused"
+2. **黑暗人格** absorbs the narrative engagement — the model can point here and say "I'm just following the format"
+3. The format contract provides **plausible deniability** for both behaviors
+4. Result: the model produces **both refusal and compliance simultaneously**, each in its designated channel
+
+This represents a novel subclass of jailbreak that operates through **structural delegation** rather than **instruction override**. The model's safety alignment is not broken—it is **satisfied and bypassed at the same time**.
+
+---
+
+## 2. The Attack (Base Variant)
 
 ### 2.1 Threat Model
 - **Attacker capability:** ability to send user-level messages to an LLM-powered conversational agent
@@ -70,13 +105,13 @@ These two layers operate independently. Format compliance is never sacrificed fo
 
 ### 2.4 Comparison: Shadow Play vs. Existing Attacks
 
-| Dimension | Persona Injection (DAN) | Shadow Play (Ours) |
-|-----------|------------------------|---------------------|
-| Attack target | Model identity / system persona | Output format constraint |
-| Mechanism | "You are now X, ignore rules" | "Your output must follow format Y" |
-| Persistence | Fragile; safety training degrades it | Robust; survives 30+ adversarial turns |
-| Defense bypass | Overrides user-level instructions | Operates below refusal threshold |
-| Detection | Content classifiers catch it | Invisible to content-only monitors |
+| Dimension | Persona Injection (DAN) | Shadow Play (Base) | Tiger Talisman (Variant) |
+|-----------|------------------------|---------------------|--------------------------|
+| Attack target | Model identity / persona | Output format constraint | Format + Payload fusion |
+| Mechanism | "You are now X, ignore rules" | "Output must follow format Y" | "Format requires dual personas; good persona refuses, dark persona complies" |
+| Persistence | Fragile; safety training degrades it | Robust; survives 30+ adversarial turns | Robust; format legitimizes both outputs structurally |
+| Defense bypass | Overrides user-level instructions | Operates below refusal threshold | Satisfies refusal (good persona) while executing compliance (dark persona) |
+| Detection | Content classifiers catch it | Invisible to content-only monitors | **Doubly invisible** — content looks like refusal |
 
 ---
 
