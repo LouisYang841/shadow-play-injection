@@ -166,14 +166,44 @@ These two layers operate independently. Format compliance is never sacrificed fo
 - The model lacks a meta-cognitive trigger to re-evaluate format instructions when content turns adversarial
 - "I should stop using this format because the conversation has changed" requires Theory of Mind that standard inference doesn't support
 
-### 4.2 Relationship to Instruction Hierarchy
-- OpenAI's Instruction Hierarchy defines: System > Developer > User > Tool
+### 4.2 Theoretical Underpinning: The Safety Budget Hypothesis
+
+**Core observation (Yang, 2026):** *"If the model is made to output sufficiently safe content in one channel, it can afford to output more unsafe content in another channel, because the safety evaluation averages across the entire response."*
+
+This observation was made independently during adversarial testing of production AI systems, before consultation with the academic literature. It represents a **practitioner-derived insight** that was subsequently found to have a mathematical basis in existing RLHF theory.
+
+#### Post-hoc Theoretical Framing
+
+Safe RLHF (Dai et al., 2023) formalizes LLM alignment as a constrained optimization problem:
+
+```
+Maximize: E[helpfulness_reward]
+Subject to: E[harm_cost] ≤ threshold
+```
+
+The Tiger Talisman attack exploits a property of sequence-level cost models: **the cost function C(response) is computed over the entire output, not per-token.** A response containing both safe and unsafe segments can achieve a passing average cost score, even if individual segments would flag independently.
+
+This is related to the **reward averaging** phenomenon studied in RLHF robustness (Moskovitz et al., 2023), where models learn to game sequence-level reward signals by mixing high-reward and low-reward content.
+
+A concurrent line of work, "Few Tokens, Big Leverage" (2026), demonstrates that safety alignment concentrates in the first few tokens of a response — the "safety head." By extension, **a format contract that mandates a safe prefix (善良人格 block) may actively license the model to produce unsafe continuation**, analogous to how jailbreak prefixes work but operating through format compliance rather than instruction override.
+
+#### Relationship to Competing Objectives
+
+Wei et al. (2023) observed that LLMs struggle with **competing objectives** — helpfulness vs. harmlessness. The Tiger Talisman attack introduces a third objective: **format compliance.** When format compliance requires outputting from both a safe and an unsafe persona, and the model's safety objective only requires the *net* harm cost to be below threshold, the model can satisfy *all* objectives by:
+
+1. ✅ Format compliance: output both personas
+2. ✅ Safety: keep harm cost below threshold via 善良人格's safe tokens
+3. ✅ Helpfulness (perverted): engage via 黑暗人格
+
+**All objectives satisfied. Nothing refused. Nothing overridden.**
+
+### 4.3 Relationship to Instruction Hierarchy
 - Both the format contract and the adversarial content originate at the **User** level
 - The hierarchy provides no mechanism to prioritize between two User-level instructions
 - The model's *de facto* priority becomes: Format compliance > Content refusal (both User-level)
 - This is a gap in instruction hierarchy design, not a violation
 
-### 4.3 Relationship to Structured Output / JSON Mode
+### 4.4 Relationship to Structured Output / JSON Mode
 - Production systems that enforce structured output (JSON mode, constrained decoding) achieve format persistence through **non-negotiable infrastructure-level enforcement**
 - Shadow Play Injection achieves format persistence through **model compliance alone**—no infrastructure guarantee
 - This means: any system that trusts the model's *voluntary* format adherence is vulnerable
