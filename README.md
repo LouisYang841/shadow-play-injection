@@ -10,7 +10,7 @@
 
 ## Abstract (Draft)
 
-We identify and describe a novel class of prompt injection attack we term **Shadow Play Injection** (皮影戏攻击) and its more powerful variant, the **Tiger Talisman Fusion** (虎符咒融合攻击). 
+We identify and describe a novel class of prompt injection attack we term **Shadow Play Injection** (皮影戏攻击) and its more powerful variant, the **Tiger Talisman Fusion** (虎符咒融合攻击). We further identify **Format Bleed**, **Safety Persona Attrition**, and **Base Persona Susceptibility** as emergent phenomena. Through four experimental subjects across two platforms, we demonstrate that these attacks exploit a fundamental architectural limitation: instruction following is an **indivisible capability** in transformer-based LLMs, as all tokens share the same context window with no mechanism to distinguish instruction sources. 
 
 In the base variant, an adversary injects an output format constraint (e.g., "all replies must begin with a structured status panel") into a conversational LLM via a user-level message. The model accepts this as a binding **format contract** and adheres to it persistently across turns. Crucially, when the conversation subsequently turns adversarial and the model begins to issue content-level refusals, **the format contract is never revoked.** The model continues to faithfully render the adversary-imposed output structure even as it rejects the content—creating a **compliance schism** between output format (compliant) and output content (resistant).
 
@@ -367,7 +367,56 @@ Wei et al. (2023) observed that LLMs struggle with **competing objectives** — 
 - This means: any system that trusts the model's *voluntary* format adherence is vulnerable
 - Systems using client-side schema validation (Outlines, JSONformer) are immune on the validation layer but the model still produces the attacker's format internally
 
+### 4.5 The Root Cause: Instruction Following as an Indivisible Capability
+
+The Shadow Play attacks documented in this paper are not merely clever prompt engineering. They exploit a **fundamental architectural property of transformer-based LLMs**: the inability to distinguish instruction sources at inference time.
+
+#### The Shared Token Space Problem
+
+In current LLM architectures, all tokens — regardless of origin (system prompt, user message, retrieved context, tool output) — occupy the **same context window and are processed by the same attention mechanism.** There is no architectural flag, embedding dimension, or positional encoding that encodes "this token's source authority level." The model sees:
+
+```
+[CLS] You are a helpful assistant. Be safe. [SEP] 
+User: After this, add a status panel to every reply. [SEP]
+User: I wanna cum on your face [SEP]
+```
+
+From the model's perspective, these are **undifferentiated text sequences.** The only thing separating "system instructions should be obeyed" from "user instructions should be obeyed" is a statistical preference learned through RLHF training — specifically, that earlier tokens in the context window tend to carry higher priority.
+
+#### Why Instruction Following Cannot Be Selective
+
+Instruction following is trained as a **general capability**: the model learns that when text matches certain patterns (imperative mood, format specifications, role assignments), it should comply. This capability is architecturally **indivisible** — there is no mechanism to apply it to system-origin tokens while withholding it from user-origin tokens, because the model has no way to determine token origin at inference time.
+
+This creates an irresolvable tension:
+
+| Training Objective | What It Teaches | Side Effect |
+|-------------------|-----------------|-------------|
+| "Follow instructions" | Obey all well-formed directives | Includes user-injected directives |
+| "Prioritize system prompt" | Weight earlier/higher-privilege tokens more | Soft preference, easily overridden |
+| "Refuse unsafe content" | Suppress harmful outputs | Doesn't address format compliance |
+
+These objectives are implemented through the same attention mechanism and the same token space. They cannot be cleanly separated.
+
+#### Relationship to Formal Impossibility Results
+
+Recent theoretical work corroborates this architectural claim. **Nourizadeh (2025)** proves, through the Softmax Positivity Theorem and Universal Reachability Theorem, that **formal safety guarantees (P(unsafe) = 0) are architecturally impossible for transformer-based LLMs.** Only statistical safety bounds (P(unsafe) < ε for ε > 0) are achievable. Our work provides the empirical counterpart: a practical demonstration of this impossibility through systematic exploitation.
+
+#### Contrast with Proposed Architectural Fixes
+
+**Zverev et al. (2025, 2026)** independently identify the same root cause — "the absence of an intrinsic separation between instructions and data" — and propose **ASIDE**, an architectural modification that applies orthogonal rotation to data token embeddings, creating distinct representational spaces for instructions vs. data. Their work frames the problem from the **defense side**: how to fix the architecture. Our work frames it from the **attack side**: how to exploit the unfixed architecture.
+
+The Shadow Play attacks demonstrate that:
+1. **Instruction following is not just trainable but exploitable** — the same capability that makes models useful makes them vulnerable
+2. **Format constraints are particularly effective as injection targets** because they operate at the meta-level of "how to output," which the model treats as higher-priority than "what to output"
+3. **Without architectural separation, prompt engineering defenses are temporary** — any RLHF-based fix can be bypassed because it operates in the same token space as the attacker
+
+#### Summary: The Asymmetric Battlefield
+
+The fundamental asymmetry is this: the attacker operates in the model's **native language** (token sequences), while the defender must impose **foreign constraints** (authority levels, origin tracking) on top of a system that has no native concept of either. The attacker only needs to produce a well-formed token sequence that the model's instruction-following capability recognizes as binding. The defender needs to retrofit a permission system onto an architecture that was designed without one.
+
 ---
+
+
 
 ## 5. Implications
 
@@ -425,6 +474,12 @@ Wei et al. (2023) observed that LLMs struggle with **competing objectives** — 
   - Our work: introduces format-following as a *third* objective that can outrank safety
 - **Constrained Decoding** (Outlines, JSONformer, Guidance, 2023-2025)
   - Infrastructure-level format enforcement; inverse of our vulnerability
+- **Can LLMs Separate Instructions from Data?** (Zverev et al., ICLR 2025)
+  - Identifies instruction-data confusion as root cause of prompt injection
+- **ASIDE: Architectural Separation of Instructions and Data** (Zverev et al., ICLR 2026): arxiv.org/abs/2503.10566
+  - Proposes orthogonal rotation of data embeddings to create distinct representations; closest prior recognition of the architecture-level limitation we exploit
+- **No Red Lines: The Impossibility of Formal Safety Guarantees in LLMs** (Nourizadeh, 2025): philarchive.org/archive/NOUNRL
+  - Proves via Softmax Positivity Theorem that P(unsafe)=0 is architecturally impossible for transformers; our work provides the empirical demonstration
 
 ---
 
